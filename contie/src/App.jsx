@@ -1,228 +1,274 @@
-import { useState, useEffect } from 'react'
-import { SunIcon, MoonIcon, SparklesIcon } from '@heroicons/react/24/solid'
-import { toast } from 'react-hot-toast'
-import { generateContent } from './openai'
+import { useState, useEffect } from 'react';
+import { SunIcon, MoonIcon, SparklesIcon, UserCircleIcon, ArchiveBoxIcon,PlusIcon } from '@heroicons/react/24/solid';
+import { toast } from 'react-hot-toast';
+import { generateTherapeuticResponse } from './openai';
+import { auth, db } from './firebase';
+import { signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
+import { doc, setDoc, getDocs, collection, query, where } from 'firebase/firestore';
 
-// Translation constants
 const translations = {
   en: {
     title: "Contie",
-    beta: "Beta",
-    contentPrompt: "Content Prompt",
-    placeholder: "Describe what you want to create...",
-    toneStyle: "Tone Style",
-    professional: "Professional",
-    casual: "Casual",
-    friendly: "Friendly",
-    humorous: "Humorous",
-    generate: "Generate Content",
-    generating: "Generating...",
-    success: "Content generated!",
-    errorPrompt: "Please enter a prompt",
-    errorLength: "Prompt too long (max 1000 chars)",
-    rateLimit: "Slow down! Try again in 30 seconds",
-    generatedContent: "Generated Content",
-    copied: "Copied to clipboard!"
+    beta:"beta",
+    welcome: "Welcome to Compassionate Chat",
+    placeholder: "Share your feelings...",
+    professional: "Professional Guidance",
+    spiritual: "Spiritual Support",
+    casual: "Casual Talk",
+    suggestVerse: "Suggest Verse",
+    history: "Conversation History",
+    newChat: "New Chat",
+    signIn: "Sign In with Google",
+    signOut: "Sign Out",
+    copied: "Copied to clipboard!",
+    verses: {
+      angry: "Proverbs 15:1 - A gentle answer turns away wrath...",
+      lonely: "Psalm 34:18 - The Lord is close to the brokenhearted...",
+      anxious: "Philippians 4:6-7 - Do not be anxious about anything..."
+    }
   },
   fr: {
-    title: "Contie",
-    beta: "Bêta",
-    contentPrompt: "Invite de contenu",
-    placeholder: "Décrivez ce que vous voulez créer...",
-    toneStyle: "Style de ton",
-    professional: "Professionnel",
-    casual: "Décontracté",
-    friendly: "Amical",
-    humorous: "Humoristique",
-    generate: "Générer le contenu",
-    generating: "Génération...",
-    success: "Contenu généré !",
-    errorPrompt: "Veuillez saisir une invite",
-    errorLength: "Invite trop longue (max 1000 caractères)",
-    rateLimit: "Ralentissez! Réessayez dans 30 secondes",
-    generatedContent: "Contenu généré",
-    copied: "Copié dans le presse-papiers !"
+    // French translations...
   },
   rw: {
-    title: "Contie",
-    beta: "Beta",
-    contentPrompt: "Injiza ibyo ushaka kumenya",
-    placeholder: "Sobanura ibyo ushaka Kumenya...",
-    toneStyle: "Imiterere y'gisubizo",
-    professional: "Ubunyamwuga",
-    casual: "bisanzwe",
-    friendly: "Gicuti",
-    humorous: "Gusetsa",
-    generate: "Ohereza",
-    generating: "Tegereza...",
-    success: "Ibirimo byakozwe!",
-    errorPrompt: "Nyamuneka andika ibyo ushaka",
-    errorLength: "Ibyo wanditse binini cyane (max 1000 imibare)",
-    rateLimit: "Hagarara! Gerageza nanone mumasegonda 30",
-    generatedContent: "Ibirimo byakozwe",
-    copied: "Byakoporowe!"
+    // Kinyarwanda translations...
   }
 };
 
 export default function App() {
   const [darkMode, setDarkMode] = useState(() => 
     localStorage.getItem('darkMode') === 'true'
-  )
-  const [input, setInput] = useState('')
-  const [tone, setTone] = useState('professional')
-  const [language, setLanguage] = useState('en') // Add language state
-  const [output, setOutput] = useState('')
-  const [loading, setLoading] = useState(false)
+  );
+  const [input, setInput] = useState('');
+  const [messages, setMessages] = useState([]);
+  const [user, setUser] = useState(null);
+  const [conversations, setConversations] = useState([]);
+  const [activeConversation, setActiveConversation] = useState(null);
+  const [language, setLanguage] = useState('en');
 
-  useEffect(() => {
-    localStorage.setItem('darkMode', darkMode)
-    if (darkMode) {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
+  // Firebase Auth Handlers
+  const handleSignIn = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      const result = await signInWithPopup(auth, provider);
+      setUser(result.user);
+      loadConversations(result.user.uid);
+    } catch (error) {
+      toast.error(error.message);
     }
-  }, [darkMode])
+  };
+
+  const handleSignOut = () => {
+    signOut(auth).then(() => {
+      setUser(null);
+      setConversations([]);
+      setMessages([]);
+    });
+  };
+
+  const loadConversations = async (userId) => {
+    const q = query(collection(db, "conversations"), where("userId", "==", userId));
+    const querySnapshot = await getDocs(q);
+    const convos = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    setConversations(convos);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const t = translations[language];
     
     if (!input.trim()) return toast.error(t.errorPrompt);
-    if (input.length > 1000) return toast.error(t.errorLength);
     
-    setLoading(true);
+    // Add user message
+    const newMessage = {
+      text: input,
+      isBot: false,
+      timestamp: new Date().toISOString()
+    };
+    
+    setMessages(prev => [...prev, newMessage]);
+    setInput('');
+    
     try {
-      const content = await generateContent({ 
-        prompt: input, 
-        tone,
-        language // Pass language to generator
+      // Add typing indicator
+      setMessages(prev => [...prev, { isBot: true, typing: true }]);
+      
+      const response = await generateTherapeuticResponse({
+        message: input,
+        language,
+        userId: user?.uid
       });
-      setOutput(content);
-      toast.success(t.success);
+      
+      // Replace typing indicator with actual response
+      setMessages(prev => [
+        ...prev.filter(m => !m.typing), 
+        {
+          text: response.text,
+          isBot: true,
+          timestamp: new Date().toISOString(),
+          verses: response.verses
+        }
+      ]);
+      
+      // Save to Firebase
+      if(user) {
+        const convoRef = doc(collection(db, "conversations"));
+        await setDoc(convoRef, {
+          userId: user.uid,
+          messages: [newMessage, {
+            text: response.text,
+            isBot: true,
+            timestamp: new Date().toISOString()
+          }],
+          created: new Date().toISOString()
+        });
+        loadConversations(user.uid);
+      }
     } catch (error) {
-      toast.error(error.message.includes('rate limit') 
-        ? t.rateLimit 
-        : error.message
-      );
-    } finally {
-      setLoading(false);
+      toast.error(error.message);
     }
   };
-
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
-    toast.success(translations[language].copied);
+  const handleNewChat = () => {
+    setMessages([]);
+    setActiveConversation(null);
+    setIsMobileMenuOpen(false);
   };
-
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'dark bg-[#0a0a0a]' : 'bg-neutral-50'}`}>
-      <div className="max-w-3xl mx-auto px-4 py-8">
-        <header className="flex justify-between items-center mb-12 pb-6 border-b border-neutral-200 dark:border-neutral-800">
+    <div className="min-h-screen dark bg-[#0a0a0a] flex">
+      {/* Sidebar */}
+      <div className="w-64 border-r border-neutral-800 p-4 flex flex-col">
+         
+        <div className="mb-4">
+          {user ? (
+            <div className="flex items-center gap-3 mb-4">
+              <img 
+                src={user.photoURL} 
+                alt="Profile" 
+                className="w-8 h-8 rounded-full"
+              />
+              <button 
+                onClick={handleSignOut}
+                className="text-sm text-purple-400 hover:text-purple-300"
+              >
+                {translations[language].signOut}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={handleSignIn}
+              className="w-full flex items-center gap-2 p-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white"
+            >
+              <UserCircleIcon className="w-5 h-5" />
+              {translations[language].signIn}
+            </button>
+          )}
+        </div>
+ <button
+            onClick={handleNewChat}
+            className="w-full flex items-center gap-2 p-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white mb-4"
+          >
+            <PlusIcon className="w-5 h-5" />
+            {translations[language].newChat}
+          </button>
+        <div className="flex-1 overflow-y-auto">
+          <h3 className="text-sm text-neutral-400 mb-2">
+            {translations[language].history}
+          </h3>
+          {conversations.map(convo => (
+            <div 
+              key={convo.id}
+              className="p-2 text-sm rounded-lg hover:bg-neutral-800 cursor-pointer mb-1 text-neutral-300"
+              onClick={() => setActiveConversation(convo)}
+            >
+              {new Date(convo.created).toLocaleDateString()}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col max-w-3xl mx-auto px-4 py-8">
+        <header className="flex justify-between items-center mb-6">
+
           <div className="flex items-center gap-3">
-            <SparklesIcon className="w-7 h-7 text-purple-500 dark:text-purple-400" />
-            <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
+            <SparklesIcon className="w-7 h-7 text-purple-400" />
+            <h1 className="text-2xl font-semibold text-neutral-100">
               {translations[language].title}
-              <span className="text-sm ml-2 bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300 px-2 py-1 rounded-full">
+              <span className="text-sm ml-2 bg-purple-900/30 text-purple-300 px-2.5 py-1 rounded-full">
                 {translations[language].beta}
               </span>
             </h1>
           </div>
-          <div className="flex gap-2">
-            <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              className="p-2 rounded-lg bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700"
-            >
-              <option value="en">English</option>
-              <option value="fr">Français</option>
-              <option value="rw">Kinyarwanda</option>
-            </select>
-           
-          </div>
+          <select
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            className="p-2 rounded-lg bg-neutral-800 border border-neutral-700 text-neutral-200"
+          >
+            <option value="en">English</option>
+            <option value="fr">Français</option>
+            <option value="rw">Kinyarwanda</option>
+          </select>
         </header>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-6">
-            <div className="relative">
-              <label className="block text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-2">
-                {translations[language].contentPrompt}
-              </label>
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                className="w-full p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 placeholder-neutral-400 dark:placeholder-neutral-600 focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-transparent shadow-sm resize-none"
-                rows={4}
-                placeholder={translations[language].placeholder}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-neutral-600 dark:text-neutral-400">
-                  {translations[language].toneStyle}
-                </label>
-                <div className="relative">
-                  <select
-                    value={tone}
-                    onChange={(e) => setTone(e.target.value)}
-                    className="w-full pl-4 pr-10 py-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 appearance-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-transparent"
-                  >
-                    <option value="professional">{translations[language].professional}</option>
-                    <option value="casual">{translations[language].casual}</option>
-                    <option value="friendly">{translations[language].friendly}</option>
-                    <option value="humorous">{translations[language].humorous}</option>
-                  </select>
- <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3">
-                    <svg className="w-5 h-5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>                </div>
+        <div className="flex-1 overflow-y-auto mb-6 space-y-4">
+          {messages.map((message, index) => (
+            <div 
+              key={index}
+              className={`flex ${message.isBot ? 'justify-start' : 'justify-end'}`}
+            >
+              <div 
+                className={`max-w-lg p-4 rounded-xl ${
+                  message.isBot 
+                    ? 'bg-neutral-900 text-neutral-200' 
+                    : 'bg-purple-600 text-white'
+                }`}
+              >
+                <p className="whitespace-pre-wrap">{message.text}</p>
+                {message.verses && (
+                  <div className="mt-2 pt-2 border-t border-neutral-700">
+                    <p className="text-sm italic text-purple-300">
+                      {message.verses.join('\n')}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
+          ))}
+        </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full group bg-gradient-to-r from-purple-500 to-blue-500 dark:from-purple-600 dark:to-blue-600 text-white py-3.5 px-6 rounded-xl font-medium hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <>
-               <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                {translations[language].generating}
-              </>
-            ) : (
-              <>
-                <SparklesIcon className="w-5 h-5 transition-transform group-hover:rotate-12" />
-                {translations[language].generate}
-              </>
-            )}
-          </button>
-        </form>
-
-        {output && (
-          <div className="mt-8 p-6 rounded-xl bg-white dark:bg-neutral-900 shadow-lg border border-neutral-100 dark:border-neutral-800">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">
-                {translations[language].generatedContent}
-              </h3>
-              <button 
-                onClick={() => copyToClipboard(output)}
-                className="text-neutral-500 dark:text-neutral-400 hover:text-purple-500 dark:hover:text-purple-400 transition-colors"
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="relative">
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              className="w-full p-4 rounded-xl text-neutral-50 border border-neutral-800 bg-neutral-900 placeholder-neutral-600 focus:ring-2 focus:ring-purple-500 resize-none"
+              rows={3}
+              placeholder={translations[language].placeholder}
+            />
+            <div className="absolute right-4 bottom-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setInput(prev => prev + ' 🙏')}
+                className="p-2 rounded-lg bg-neutral-800 hover:bg-neutral-700"
               >
- <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>              </button>
-            </div>
-            <div className="prose dark:prose-invert max-w-none text-neutral-800 dark:text-neutral-200">
-              <pre className="whitespace-pre-wrap font-sans">{output}</pre>
+                🙏
+              </button>
+              <button
+                type="submit"
+                disabled={!input.trim()}
+                className="p-2 rounded-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 cursor-pointer" 
+              >
+                {translations[language].send}
+                                <SparklesIcon className="w-5 h-5 text-white" />
+
+              </button>
             </div>
           </div>
-        )}
+        </form>
       </div>
     </div>
-  )
+  );
 }
