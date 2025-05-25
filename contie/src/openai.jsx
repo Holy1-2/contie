@@ -18,7 +18,7 @@ export async function generateTherapeuticResponse({ message, language, userId })
     const response = await puter.ai.chat(prompt, {
       model: 'gpt-4.1',
       temperature: 0.65,
-      max_tokens: 400,
+      max_tokens:2000,
       user: userId
     });
 

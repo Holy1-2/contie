@@ -1,68 +1,64 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" dir="ltr">
   <head>
-    <!-- Basic Meta Tags -->
-     <meta charset="UTF-8">
+    <!-- Primary Meta Tags -->
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contie | Made for Moments That Matter.</title>
-    <meta name="title" content="Contie |  Made for Moments That Matter.">
-    <meta name="description" content="Contie AI is a multilingual smart assistant that helps you generate high-quality content, manage daily tasks, and boost productivity with professional, casual, friendly, or humorous tones. Perfect for writers, marketers, and professionals worldwide.">
-    <meta name="keywords" content="AI assistant, content generator, daily life assistant, multilingual AI, writing tool, productivity tool, AI content creation, smart writing assistant">
+    <title>Contie | Made for moments that matter</title>
+    <meta name="title" content="Contie | 24/7 AI made for you">
+    <meta name="description" content="Confidential emotional support AI for residents of Japan, South Korea, India, Russia, and Rwanda. Combating loneliness and depression with culturally-sensitive listening in 日本語, 한국어, English, Français, and Kinyarwanda.">
+    <meta name="keywords" content="Japan suicide prevention AI, South Korea depression chatbot, India mental health support, Russia psychological help, Rwanda trauma counseling, AI therapist Japan, Korean emotional support bot">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@700&display=swap" rel="stylesheet">
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://contie.netlify.app/">
-    <meta property="og:title" content="Contie AI - Your Daily Life Assistant for Content Generation & More">
-    <meta property="og:description" content="Contie AI is a multilingual smart assistant that helps you generate high-quality content, manage daily tasks, and boost productivity with professional, casual, friendly, or humorous tones.">
-    <meta property="og:image" content="/favicon.ico">
-
+    <meta property="og:title" content="Contie - Mental Health Support for High-Risk Nations">
+    <meta property="og:description" content="AI-powered crisis support tailored for Japan's overworked, South Korea's isolated youth, India's stressed students, and global communities facing mental health challenges.">
+    <meta property="og:image" content="/contie.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://js.puter.com/v2/"></script>
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:url" content="https://contie.netlify.app/">
-    <meta property="twitter:title" content="Contie AI - Your Daily Life Assistant for Content Generation & More">
-    <meta property="twitter:description" content="Contie AI is a multilingual smart assistant that helps you generate high-quality content, manage daily tasks, and boost productivity with professional, casual, friendly, or humorous tones.">
-    <meta property="twitter:image" content="/contie.jpg">
-
-
+    <meta property="twitter:title" content="Contie AI - Breaking Mental Health Stigma Worldwide">
+    <meta property="twitter:description" content="24/7 anonymous support for high suicide rate countries: Japan (日本), South Korea (한국), Russia (Россия), India (भारत), Rwanda. Culturally-adapted emotional first aid.">
+    <meta property="twitter:image" content="/contie.png">
     <!-- Favicon -->
     <link rel="icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <link rel="manifest" href="/site.webmanifest" />
-
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=Inter:wght@300;500;700&display=swap" rel="stylesheet">
-
-    <!-- Puter AI SDK -->
-    <script src="https://js.puter.com/v2/"></script>
- <script type="application/ld+json">
+    <!-- Enhanced Schema Markup with Crisis Support -->
+    <script type="application/ld+json">
     {
         "@context": "https://schema.org",
-        "@type": "SoftwareApplication",
+        "@type": "CrisisCounseling",
         "name": "Contie AI",
-        "description": "Multilingual AI-powered daily life assistant and content generation tool",
-        "applicationCategory": "Productivity",
-        "operatingSystem": "Web",
-        "offers": {
-            "@type": "Offer",
-            "price": "0",
-            "priceCurrency": "USD"
+        "description": "24/7 Multilingual Suicide Prevention & Emotional First Aid",
+        "serviceType": ["Hotline", "ChatService", "PsychologicalSupport"],
+        "areaServed": ["JP", "KR", "RU", "IN", "RW", "GH", "ZA", "BR"],
+        "availableChannel": {
+            "@type": "ServiceChannel",
+            "serviceUrl": "https://contie.netlify.app",
+            "serviceLocation": {
+                "@type": "VirtualLocation",
+                "url": "https://contie.netlify.app"
+            }
         },
-        "aggregateRating": {
-            "@type": "AggregateRating",
-            "ratingValue": "4.8",
-            "ratingCount": "1500"
-        }
+        "audience": {
+            "@type": "PeopleAudience",
+            "geographicArea": {
+                "@type": "Country",
+                "name": ["Japan", "South Korea", "Russia", "India", "Rwanda"]
+            },
+            "healthCondition": ["Depression", "Anxiety", "Loneliness", "Trauma"]
+        },
+        "accessibilityFeature": ["TextToSpeech", "LanguageTranslation", "AlternativeText"]
     }
     </script>
-    <!-- Title -->
-    <title>Contie | Made for Moments That Matter.</title>
-  </head>
-  <style>
+<style>
     /* Styles remain unchanged */
     .dark {
       color-scheme: dark;
@@ -123,8 +119,16 @@
 }
 
   </style>
-  <body>
+    <!-- Hreflang for Target Countries -->
+    <link rel="alternate" hreflang="ja" href="https://contie.netlify.app/ja" />
+    <link rel="alternate" hreflang="ko" href="https://contie.netlify.app/ko" />
+    <link rel="alternate" hreflang="ru" href="https://contie.netlify.app/ru" />
+    <link rel="alternate" hreflang="hi" href="https://contie.netlify.app/hi" />
+    <link rel="alternate" hreflang="rw" href="https://contie.netlify.app/rw" />
+</head>
+
+<body class="dark:bg-[#0a0a0a]">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
-  </body>
+</body>
 </html>
