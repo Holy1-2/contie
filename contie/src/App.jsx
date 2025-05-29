@@ -1,11 +1,14 @@
-import { useState, useEffect } from 'react';
-import { SparklesIcon, UserCircleIcon, PlusIcon, Bars3Icon ,XMarkIcon,PencilIcon,DocumentArrowDownIcon,DocumentDuplicateIcon,ShareIcon} from '@heroicons/react/24/solid';
+import { useState, useEffect,useRef } from 'react';
+import { SparklesIcon, UserCircleIcon, PlusIcon, Bars3Icon ,XMarkIcon,PencilIcon,DocumentArrowDownIcon,DocumentDuplicateIcon,ShareIcon,UserPlusIcon,GlobeAltIcon,ChevronDownIcon,FlagIcon,CheckIcon} from '@heroicons/react/24/solid';
 import { toast } from 'react-hot-toast';
 import { generateTherapeuticResponse } from './openai';
 import { auth, db } from './firebase';
 import { useCallback } from 'react';
 import { debounce } from './utilis/debounce'
-import { signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from 'firebase/auth';
+
+import { signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword,
+  updateProfile } from 'firebase/auth';
 import { doc, setDoc,  getDocs, collection, query, where, updateDoc,orderBy,serverTimestamp} from 'firebase/firestore';
 const translations = {
   en: {
@@ -19,9 +22,15 @@ const translations = {
     suggestVerse: "Suggest Verse",
     history: "Conversation History",
     newChat: "New Chat",
-    signIn: "Sign In with Google",
+    signIn: "Sign In ",
     signOut: "Sign Out",
     copied: "Copied to clipboard!",
+    signUp: "Sign Up",
+    namePlaceholder: "Your name",
+    displayName: "Display Name",
+    password: "Password",
+    createAccount: "Create new account",
+    existingAccount: "Already have an account?",
     verses: {
       angry: "Proverbs 15:1 - A gentle answer turns away wrath...",
       lonely: "Psalm 34:18 - The Lord is close to the brokenhearted...",
@@ -39,8 +48,15 @@ const translations = {
     suggestVerse: "Suggérer un Verset",
     history: "Historique de Conversation",
     newChat: "Nouvelle Discussion",
-    signIn: "Se Connecter ",
-    signOut: "Se Déconnecter",
+     signIn: "Se connecter",
+    signOut: "Se déconnecter",
+    copied: "Copié dans le presse-papiers !",
+    signUp: "S'inscrire",
+    namePlaceholder: "Votre nom",
+    displayName: "Nom d'affichage",
+    password: "Mot de passe",
+    createAccount: "Créer un nouveau compte",
+    existingAccount: "Vous avez déjà un compte ?",
     copied: "Copié dans le presse-papiers !",
     verses: {
       angry: "Proverbes 15:1 - Une réponse douce calme la fureur...",
@@ -59,8 +75,15 @@ const translations = {
     suggestVerse: "Tanga umurongo w’Ibyanditswe",
     history: "Amateka y’Ikiganiro",
     newChat: "Ikiganiro Gishya",
-    signIn: "Injira ",
+     signIn: "Injira",
     signOut: "Sohoka",
+    copied: "Byakoporowe muri clipboard!",
+    signUp: "Iyandikishe",
+    namePlaceholder: "Izina ryawe",
+    displayName: "Izina rigaragara",
+    password: "Ijambo ry'ibanga",
+    createAccount: "Fungura konti nshya",
+    existingAccount: "Usanzwe ufite konti?",
     copied: "Byakoporowe kuri clipboard!",
     verses: {
       angry: "Imigani 15:1 - Ijambo ryiza rigabanya uburakari...",
@@ -85,19 +108,38 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [newName, setNewName] = useState('');
+    const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
 const [textareaHeight, setTextareaHeight] = useState('3rem');
-
+const [showAuthModal, setShowAuthModal] = useState(false);
+const [authMode, setAuthMode] = useState('login'); // 'login' or 'register'
+const [email, setEmail] = useState('');
+const [password, setPassword] = useState('');
+const [name, setName] = useState('');
   // Firebase Auth Handlers
-  const handleSignIn = async () => {
-    const provider = new GoogleAuthProvider();
-    try {
-      const result = await signInWithPopup(auth, provider);
-      setUser(result.user);
-      loadConversations(result.user.uid);
-    } catch (error) {
-      toast.error(error.message);
-    }
-  };
+  const handleLogin = async (e) => {
+  e.preventDefault();
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+    setShowAuthModal(false);
+  } catch (error) {
+    toast.error("Login failed: " + error.message);
+  }
+};
+
+const handleRegister = async (e) => {
+  e.preventDefault();
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    // Update display name
+    await updateProfile(userCredential.user, {
+      displayName: name
+    });
+    setShowAuthModal(false);
+  } catch (error) {
+    toast.error("Registration failed: " + error.message);
+  }
+};
 useEffect(() => {
   const lines = input.split('\n').length;
   const newHeight = Math.min(Math.max(lines * 24, 48), 144); // 24px per line
@@ -110,14 +152,21 @@ useEffect(() => {
       setMessages([]);
     });
   };
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
-      if (window.innerWidth >= 768) setSidebarOpen(false);
+    useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
     };
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+
+    // Add both mouse and touch events for mobile support
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, []);
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -276,6 +325,65 @@ const updatedMessages = [
     }
     setEditingId(null);
   }, 500);
+ // Language Selector Component
+  const LanguageSelector = () => (
+  
+    <div className="relative" ref={dropdownRef}>
+      <button
+        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-neutral-800 border border-neutral-700 text-neutral-200 hover:bg-neutral-700 transition-colors"
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(!isOpen);
+        }}
+        onTouchEnd={(e) => e.stopPropagation()} // Add touch handler for mobile
+      >
+        <GlobeAltIcon className="w-5 h-5 text-purple-400" />
+        <span className="hidden sm:inline">
+          {language === 'en' ? 'English' : 
+           language === 'fr' ? 'Français' : 
+           'Kinyarwanda'}
+        </span>
+        <ChevronDownIcon className="w-4 h-4 text-neutral-400" />
+      </button>
+
+      {isOpen && (
+        <div className="absolute right-0 mt-2 w-48 bg-neutral-900 border border-neutral-800 rounded-xl shadow-lg z-20">
+          <div className="py-2">
+            {[
+              { value: 'en', name: 'English', icon: <FlagIcon className="w-5 h-5" /> },
+              { value: 'fr', name: 'Français', icon: <FlagIcon className="w-5 h-5" /> },
+              { value: 'rw', name: 'Kinyarwanda', icon: <FlagIcon className="w-5 h-5" /> }
+            ].map((lang) => (
+              <button
+                key={lang.value}
+                onClick={() => {
+                  setLanguage(lang.value);
+                  setIsOpen(false); // Close after selection
+                }}
+                onTouchEnd={() => { // Add touch handler for mobile
+                  setLanguage(lang.value);
+                  setIsOpen(false);
+                }}
+                className={`flex items-center gap-3 w-full px-4 py-3 text-left text-sm ${
+                  language === lang.value
+                    ? 'bg-purple-900/40 text-purple-300'
+                    : 'text-neutral-300 hover:bg-neutral-800'
+                }`}
+              >
+                {lang.icon}
+                <span>{lang.name}</span>
+                {language === lang.value && (
+                  <CheckIcon className="ml-auto w-4 h-4 text-purple-400" />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] flex">
@@ -365,16 +473,18 @@ const updatedMessages = [
 
     {/* User Section */}
     <div className="border-t border-neutral-800 pt-4">
-      {user ? (
+  {user ? (
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 flex-1">
-            <img
-              src={user.photoURL}
-              alt={user.displayName}
-              className="w-8 h-8 rounded-full object-cover"
-            />
+            <div className="bg-purple-600 rounded-full w-8 h-8 flex items-center justify-center">
+              <span className="text-white text-sm">
+                {user.displayName?.charAt(0) || user.email?.charAt(0) || 'U'}
+              </span>
+            </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-neutral-300 truncate">{user.displayName}</p>
+              <p className="text-sm text-neutral-300 truncate">
+                {user.displayName || user.email}
+              </p>
               <button
                 onClick={handleSignOut}
                 className="text-xs text-purple-400 hover:text-purple-300 truncate"
@@ -391,22 +501,38 @@ const updatedMessages = [
             <PlusIcon className="w-5 h-5 text-white" />
           </button>
         </div>
-      ) : (
-        <button
-          onClick={handleSignIn}
-          className="w-full flex items-center gap-2 p-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white transition-colors"
-        >
-          <UserCircleIcon className="w-5 h-5" />
-          <span className="truncate">{translations[language].signIn}</span>
-        </button>
-      )}
+) : (
+    <div className="flex flex-col gap-2">
+      <button
+        onClick={() => {
+          setAuthMode('login');
+          setShowAuthModal(true);  // ADD THIS
+        }}
+        className="w-full flex items-center justify-center gap-2 p-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white transition-colors"
+      >
+        <UserCircleIcon className="w-5 h-5" />
+        <span>{translations[language].signIn}</span>
+      </button>
+      <button
+        onClick={() => {
+          setAuthMode('register');
+          setShowAuthModal(true);  // ADD THIS
+        }}
+        className="w-full flex items-center justify-center gap-2 p-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-white transition-colors"
+      >
+        <UserPlusIcon className="w-5 h-5" />
+        <span>{translations[language].signUp}</span>
+      </button>
     </div>
-  </div>
+  )}
+</div>
+</div>
 </div>
       {/* Main Chat Area */}
       
       <div className="flex-1 flex flex-col min-w-0  md:ml-64">
         {/* Mobile Header */}
+        
         <div className="md:hidden p-4 border-b border-neutral-800 flex justify-between items-center">
           <button
             onClick={() => setSidebarOpen(true)}
@@ -421,6 +547,7 @@ const updatedMessages = [
             </span>
           </h1>
           <div className="w-8" />
+            <LanguageSelector />
         </div>
 
         {/* Desktop Header */}
@@ -434,16 +561,94 @@ const updatedMessages = [
               </span>
             </h1>
           </div>
-          <select
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            className="px-4 py-2 rounded-lg bg-neutral-800 border border-neutral-700 text-neutral-200 text-sm"
-          >
-            <option value="en">English</option>
-            <option value="fr">Français</option>
-            <option value="rw">Kinyarwanda</option>
-          </select>
+         <LanguageSelector />
         </div>
+{/* Auth Modal */}
+{/* Auth Modal */}
+{showAuthModal && (
+  <div className="fixed inset-0 bg-black bg-opacity-70 z-[100] flex items-center justify-center p-4">
+    <div className="bg-[#0a0a0a] border border-neutral-800 rounded-xl p-6 w-full max-w-sm relative">
+      <button
+        onClick={() => setShowAuthModal(false)}
+        className="absolute top-4 right-4 text-neutral-400 hover:text-white"
+      >
+        <XMarkIcon className="w-6 h-6" />
+      </button>
+
+      <h2 className="text-xl font-bold mb-6 text-white">
+        {authMode === 'login' 
+          ? translations[language].signIn 
+          : translations[language].signUp}
+      </h2>
+
+      <form onSubmit={authMode === 'login' ? handleLogin : handleRegister}>
+        {authMode === 'register' && (
+          <div className="mb-4">
+            <label className="block text-sm text-neutral-300 mb-1">
+              {translations[language].displayName}
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
+              placeholder={translations[language].namePlaceholder}
+            />
+          </div>
+        )}
+
+        <div className="mb-4">
+          <label className="block text-sm text-neutral-300 mb-1">
+            {translations[language].email}
+          </label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
+            placeholder="you@example.com"
+            required
+          />
+        </div>
+
+        <div className="mb-6">
+          <label className="block text-sm text-neutral-300 mb-1">
+            {translations[language].password}
+          </label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
+            placeholder="••••••••"
+            required
+          />
+        </div>
+
+        <button
+          type="submit"
+          className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-lg transition-colors mb-4"
+        >
+          {authMode === 'login' 
+            ? translations[language].signIn 
+            : translations[language].signUp}
+        </button>
+
+        <div className="text-center">
+          <button
+            type="button"
+            className="text-purple-400 hover:text-purple-300 text-sm"
+            onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
+          >
+            {authMode === 'login'
+              ? translations[language].createAccount
+              : translations[language].existingAccount}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+)} 
 
         {/* Chat Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-6 md:px-6 scrollbar-thin scrollbar-thumb-neutral-800">
