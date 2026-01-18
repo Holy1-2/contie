@@ -58,28 +58,33 @@
 
           {/* User Section */}
           <div className="border-t border-neutral-800 pt-4">
-            {user ? (
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 flex-1">
-                  <UserCircleIcon className="w-8 h-8 text-neutral-400" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-neutral-300 truncate">{user.displayName}</p>
-                    <button
-                      onClick={handleSignOut}
-                      className="text-xs text-purple-400 hover:text-purple-300"
-                    >
-                      {translations[language].signOut}
-                    </button>
-                  </div>
-                </div>
-                <button
-                  onClick={handleNewChat}
-                  className="p-2 rounded-lg bg-purple-600 hover:bg-purple-700"
-                >
-                  <PlusIcon className="w-5 h-5 text-white" />
-                </button>
-              </div>
-            ) : (
+          {user ? (
+  <div className="flex items-center justify-between p-4 bg-neutral-900/50 rounded-2xl border border-neutral-800">
+    <div className="flex items-center gap-3">
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold text-white ${userAvatar?.colorClass || 'bg-gradient-to-br from-emerald-500 to-cyan-500'}`}>
+        {userAvatar?.initial || user.displayName?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || 'U'}
+      </div>
+      <div className="text-xs">
+        <p className="font-bold truncate max-w-[120px]">{user.displayName || user.email?.split('@')[0]}</p>
+        <button 
+          onClick={handleSignOut} 
+          className="text-emerald-500 font-bold hover:underline"
+        >
+          {t.signOut}
+        </button>
+      </div>
+    </div>
+    <button
+      onClick={startNewChat}
+      className="p-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 transition-colors"
+      aria-label="New chat"
+    >
+      <PlusIcon className="w-5 h-5 text-white" />
+    </button>
+  </div>
+) : (
+  // ... existing code for non-logged in users
+)}
               <button
                 onClick={handleSignIn}
                 className="w-full flex items-center gap-2 p-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white"
